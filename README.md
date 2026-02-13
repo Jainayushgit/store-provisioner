@@ -5,7 +5,7 @@ This repository contains my Round 1 system design + implementation submission.
 I built a Kubernetes-native control plane where a user can create and delete ecommerce stores from a dashboard.  
 For this round, I fully implemented **WooCommerce provisioning** and kept the architecture extensible for **Medusa** later.
 
-Demo video (5-8 min): [Loom walkthrough](https://www.loom.com/share/314882afc19b49b99fc26b83878ac09c)
+Demo video : [Loom walkthrough](https://www.loom.com/share/314882afc19b49b99fc26b83878ac09c)
 
 ## 1) What I Built
 
