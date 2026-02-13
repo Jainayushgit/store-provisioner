@@ -1,0 +1,10 @@
+apiVersion: v2
+name: woocommerce
+description: WooCommerce store chart wrapper built on Bitnami WordPress
+version: 0.1.0
+appVersion: "1.0"
+
+dependencies:
+  - name: wordpress
+    version: "28.1.7"
+    repository: "https://charts.bitnami.com/bitnami"

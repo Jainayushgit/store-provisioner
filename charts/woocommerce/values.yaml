@@ -1,0 +1,120 @@
+store:
+  id: "dev"
+  namespace: "store-dev"
+  host: "store-dev.localtest.me"
+
+wordpress:
+  fullnameOverride: "store-dev"
+  wordpressUsername: admin
+  wordpressPassword: changeme
+  wordpressEmail: admin@example.com
+  wordpressFirstName: Store
+  wordpressLastName: Admin
+  wordpressBlogName: "Store"
+  wordpressPlugins: woocommerce
+  customPostInitScripts:
+    10-seed-woocommerce.sh: |
+      #!/bin/bash
+      set -euo pipefail
+
+      WP_BIN=""
+      if command -v wp >/dev/null 2>&1; then
+        WP_BIN="wp"
+      elif [ -x /opt/bitnami/wp-cli/bin/wp ]; then
+        WP_BIN="/opt/bitnami/wp-cli/bin/wp"
+      else
+        echo "wp-cli not found; skipping product seed"
+        exit 0
+      fi
+
+      wp_cmd() {
+        "$WP_BIN" --allow-root --path=/opt/bitnami/wordpress "$@"
+      }
+
+      for _ in $(seq 1 45); do
+        if wp_cmd core is-installed >/dev/null 2>&1; then
+          break
+        fi
+        sleep 1
+      done
+
+      if ! wp_cmd core is-installed >/dev/null 2>&1; then
+        echo "wordpress not ready for seeding; skipping"
+        exit 0
+      fi
+
+      wp_cmd plugin is-installed woocommerce >/dev/null 2>&1 || wp_cmd plugin install woocommerce --activate
+      wp_cmd plugin activate woocommerce || true
+
+      COD_SETTINGS='{"enabled":"yes","title":"Cash on delivery","description":"Pay with cash upon delivery.","instructions":"Demo checkout using COD.","enable_for_methods":[],"enable_for_virtual":"yes"}'
+      CHEQUE_SETTINGS='{"enabled":"yes","title":"Dummy payment","description":"No real payment required for demo.","instructions":"Use this method for test checkout."}'
+      wp_cmd option update woocommerce_cod_settings "$COD_SETTINGS" --format=json
+      wp_cmd option update woocommerce_cheque_settings "$CHEQUE_SETTINGS" --format=json
+
+      EXISTING_ID="$(wp_cmd post list --post_type=product --name=demo-product --field=ID --posts_per_page=1 2>/dev/null || true)"
+      if [ -n "${EXISTING_ID}" ]; then
+        echo "demo product already present"
+        exit 0
+      fi
+
+      PRODUCT_ID="$(wp_cmd post create --post_type=product --post_status=publish --post_title='Demo Product' --post_name='demo-product' --porcelain)"
+      wp_cmd post meta update "$PRODUCT_ID" _regular_price "19.99"
+      wp_cmd post meta update "$PRODUCT_ID" _price "19.99"
+      wp_cmd post meta update "$PRODUCT_ID" _stock_status "instock"
+      wp_cmd post meta update "$PRODUCT_ID" _manage_stock "no"
+      wp_cmd post meta update "$PRODUCT_ID" _virtual "yes"
+      wp_cmd post meta update "$PRODUCT_ID" _downloadable "no"
+      wp_cmd term set "$PRODUCT_ID" product_type simple
+      wp_cmd cache flush || true
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hostname: store-dev.localtest.me
+    path: /
+    pathType: Prefix
+  service:
+    type: ClusterIP
+  mariadb:
+    enabled: true
+    architecture: standalone
+    auth:
+      rootPassword: rootpass
+      username: bn_wordpress
+      password: wordpresspass
+      database: bitnami_wordpress
+    primary:
+      persistence:
+        enabled: true
+        size: 4Gi
+  persistence:
+    enabled: true
+    size: 4Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 600m
+      memory: 768Mi
+
+quota:
+  enabled: true
+  hard:
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+    persistentvolumeclaims: "4"
+    requests.storage: 10Gi
+
+limitRange:
+  enabled: true
+  default:
+    cpu: "500m"
+    memory: "512Mi"
+  defaultRequest:
+    cpu: "100m"
+    memory: "128Mi"
+
+networkPolicy:
+  enabled: true

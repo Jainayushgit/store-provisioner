@@ -1,0 +1,41 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 42 24% 96%;
+  --foreground: 36 16% 18%;
+  --card: 36 25% 93%;
+  --card-foreground: 36 18% 17%;
+  --popover: 36 25% 93%;
+  --popover-foreground: 36 18% 17%;
+  --primary: 92 21% 33%;
+  --primary-foreground: 50 35% 96%;
+  --secondary: 36 15% 88%;
+  --secondary-foreground: 30 13% 24%;
+  --muted: 38 16% 90%;
+  --muted-foreground: 33 9% 39%;
+  --accent: 100 14% 85%;
+  --accent-foreground: 97 24% 22%;
+  --destructive: 5 58% 42%;
+  --border: 35 16% 79%;
+  --input: 35 16% 79%;
+  --ring: 92 21% 33%;
+}
+
+* {
+  @apply border-border;
+}
+
+body {
+  @apply bg-background text-foreground font-sans;
+  min-height: 100vh;
+  background-image: radial-gradient(circle at 0% 0%, hsl(35 33% 92%) 0, transparent 45%),
+    radial-gradient(circle at 100% 100%, hsl(95 16% 90%) 0, transparent 40%);
+}
+
+#root {
+  min-height: 100vh;
+}

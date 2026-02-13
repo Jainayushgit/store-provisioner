@@ -1,0 +1,51 @@
+namespace: platform
+
+backend:
+  image: yourdockerhub/store-platform-backend:latest
+  replicas: 1
+  port: 8000
+  env:
+    DATABASE_URL: postgresql+psycopg://postgres:postgres@platform-postgres:5432/platform
+    HELM_CHART_PATH: /app/charts/woocommerce
+    LOCAL_DOMAIN: localtest.me
+    WORKER_MAX_CONCURRENCY: "2"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 700m
+      memory: 1Gi
+
+dashboard:
+  image: yourdockerhub/store-platform-dashboard:latest
+  replicas: 1
+  port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+postgres:
+  image: postgres:16-alpine
+  storageSize: 10Gi
+  database: platform
+  username: postgres
+  password: postgres
+
+ingress:
+  enabled: true
+  className: traefik
+  dashboardHost: platform.localtest.me
+  backendHost: ""
+
+rbac:
+  create: true
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  fsGroup: 10001

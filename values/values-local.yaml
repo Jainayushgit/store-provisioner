@@ -1,0 +1,13 @@
+namespace: platform
+
+ingress:
+  enabled: true
+  className: traefik
+  dashboardHost: platform.localtest.me
+  backendHost: api.platform.localtest.me
+
+backend:
+  env:
+    LOCAL_DOMAIN: localtest.me
+    HELM_CHART_PATH: /app/charts/woocommerce
+    WORKER_MAX_CONCURRENCY: "2"

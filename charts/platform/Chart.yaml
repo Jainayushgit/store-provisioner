@@ -1,0 +1,5 @@
+apiVersion: v2
+name: platform
+description: Control plane stack for store provisioning
+version: 0.1.0
+appVersion: "0.1.0"

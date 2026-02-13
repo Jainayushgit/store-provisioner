@@ -1,0 +1,3 @@
+stub:
+  enabled: false
+  message: "Medusa chart is intentionally stubbed for Round 1."

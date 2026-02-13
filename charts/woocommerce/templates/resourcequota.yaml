@@ -1,0 +1,9 @@
+{{- if .Values.quota.enabled }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "woocommerce.fullname" . }}-quota
+spec:
+  hard:
+{{ toYaml .Values.quota.hard | indent 4 }}
+{{- end }}

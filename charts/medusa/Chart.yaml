@@ -1,0 +1,5 @@
+apiVersion: v2
+name: medusa
+description: Round 1 stub chart for Medusa support
+version: 0.1.0
+appVersion: "stub"
