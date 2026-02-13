@@ -15,11 +15,13 @@ from app.models.store_event import StoreEvent
 from app.schemas.store import (
     CreateStoreRequest,
     EnqueueResponse,
+    StoreAdminCredentialsResponse,
     StoreDetailResponse,
     StoreEventResponse,
     StoreResponse,
 )
 from app.services.events import log_event
+from app.services.kube import KubeService
 from app.services.rate_limit import RateLimiter
 from app.workers.provisioner import count_active_stores
 
@@ -29,6 +31,7 @@ rate_limiter = RateLimiter(settings.rate_limit_create_delete_per_window, setting
 stores_created_total = Counter("stores_created_total", "Total stores queued for creation")
 stores_deleted_total = Counter("stores_deleted_total", "Total stores queued for deletion")
 api_rate_limited_total = Counter("api_rate_limited_total", "Total API requests rejected by rate limiting")
+kube_service = KubeService(settings.kubectl_binary, settings.kubectl_delete_timeout_seconds)
 
 
 def _request_identity(request: Request) -> str:
@@ -130,6 +133,37 @@ def get_store(store_id: str, db: Session = Depends(get_db)) -> StoreDetailRespon
     return StoreDetailResponse(
         **base.model_dump(),
         events=[StoreEventResponse(id=e.id, event_type=e.event_type, message=e.message, created_at=e.created_at) for e in events],
+    )
+
+
+@router.get("/{store_id}/admin-credentials", response_model=StoreAdminCredentialsResponse)
+def get_store_admin_credentials(store_id: str, db: Session = Depends(get_db)) -> StoreAdminCredentialsResponse:
+    if settings.environment.lower() not in {"local", "dev", "development"}:
+        raise HTTPException(status_code=403, detail="Admin credentials endpoint is disabled outside local/dev environments.")
+
+    try:
+        parsed_id = uuid.UUID(store_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid store id") from exc
+
+    store = db.get(Store, parsed_id)
+    if not store:
+        raise HTTPException(status_code=404, detail="Store not found")
+
+    if not store.url or store.status not in {StoreStatus.READY, StoreStatus.PROVISIONING}:
+        raise HTTPException(status_code=409, detail="Store credentials are not available yet.")
+
+    try:
+        password = kube_service.read_secret_value(store.namespace, store.release_name, "wordpress-password")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=f"Could not read store credentials: {exc}") from exc
+
+    admin_url = f"{store.url.rstrip('/')}/wp-admin"
+    return StoreAdminCredentialsResponse(
+        store_id=str(store.id),
+        username="admin",
+        password=password,
+        admin_url=admin_url,
     )
 
 

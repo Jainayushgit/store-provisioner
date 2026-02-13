@@ -38,3 +38,10 @@ class EnqueueResponse(BaseModel):
     status: StoreStatus
     namespace: str
     queued_job_id: str
+
+
+class StoreAdminCredentialsResponse(BaseModel):
+    store_id: str
+    username: str
+    password: str
+    admin_url: str

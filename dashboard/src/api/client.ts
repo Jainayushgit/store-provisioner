@@ -1,4 +1,4 @@
-import type { Store, StoreDetail } from "@/types";
+import type { Store, StoreAdminCredentials, StoreDetail } from "@/types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -26,6 +26,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   listStores: () => request<Store[]>("/stores"),
   getStore: (storeId: string) => request<StoreDetail>(`/stores/${storeId}`),
+  getStoreAdminCredentials: (storeId: string) =>
+    request<StoreAdminCredentials>(`/stores/${storeId}/admin-credentials`),
   createStore: (payload: { engine: "woocommerce" | "medusa"; display_name?: string }) =>
     request<{ store_id: string }>("/stores", {
       method: "POST",

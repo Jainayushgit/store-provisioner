@@ -29,3 +29,10 @@ export interface StoreEvent {
 export interface StoreDetail extends Store {
   events: StoreEvent[];
 }
+
+export interface StoreAdminCredentials {
+  store_id: string;
+  username: string;
+  password: string;
+  admin_url: string;
+}

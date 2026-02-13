@@ -1,4 +1,4 @@
-import { ExternalLink, RefreshCcw, ShieldUser, Trash2 } from "lucide-react";
+import { ExternalLink, KeyRound, RefreshCcw, ShieldUser, Trash2 } from "lucide-react";
 
 import type { Store, StoreStatus } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ interface StoresTableProps {
   onRefresh: () => Promise<void>;
   onDelete: (store: Store) => Promise<void>;
   onSelect: (storeId: string) => Promise<void>;
+  onViewCredentials: (store: Store) => Promise<void>;
 }
 
 function statusVariant(status: StoreStatus): "success" | "warning" | "danger" | "info" | "default" {
@@ -21,7 +22,7 @@ function statusVariant(status: StoreStatus): "success" | "warning" | "danger" | 
   return "default";
 }
 
-export function StoresTable({ stores, loading, onRefresh, onDelete, onSelect }: StoresTableProps) {
+export function StoresTable({ stores, loading, onRefresh, onDelete, onSelect, onViewCredentials }: StoresTableProps) {
   const adminUrl = (storeUrl: string) => `${storeUrl.replace(/\/$/, "")}/wp-admin`;
 
   return (
@@ -80,6 +81,18 @@ export function StoresTable({ stores, loading, onRefresh, onDelete, onSelect }: 
                         <a href={store.url} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
                           <ExternalLink className="h-3.5 w-3.5" /> Open
                         </a>
+                      </Button>
+                    )}
+                    {store.url && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void onViewCredentials(store);
+                        }}
+                      >
+                        <KeyRound className="h-3.5 w-3.5" /> Creds
                       </Button>
                     )}
                     {store.url && (

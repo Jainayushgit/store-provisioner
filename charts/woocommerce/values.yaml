@@ -64,7 +64,8 @@ wordpress:
       wp_cmd post meta update "$PRODUCT_ID" _manage_stock "no"
       wp_cmd post meta update "$PRODUCT_ID" _virtual "yes"
       wp_cmd post meta update "$PRODUCT_ID" _downloadable "no"
-      wp_cmd term set "$PRODUCT_ID" product_type simple
+      # Newer wp-cli requires `post term set`; keep non-fatal to avoid blocking boot on taxonomy quirks.
+      wp_cmd post term set "$PRODUCT_ID" product_type simple || true
       wp_cmd cache flush || true
   ingress:
     enabled: true
@@ -72,6 +73,15 @@ wordpress:
     hostname: store-dev.localtest.me
     path: /
     pathType: Prefix
+  # WordPress first boot + Woo/plugin seed can be slow on cold nodes.
+  # Startup probe gates liveness/readiness so pods are not restarted mid-bootstrap.
+  startupProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 90
+    successThreshold: 1
   service:
     type: ClusterIP
   mariadb:

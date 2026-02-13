@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "@/api/client";
+import { AdminCredentialsDialog } from "@/components/admin-credentials-dialog";
 import { CreateStoreDialog } from "@/components/create-store-dialog";
 import { StoreEventsPanel } from "@/components/store-events-panel";
 import { StoresTable } from "@/components/stores-table";
 import { Toast } from "@/components/ui/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Store, StoreDetail } from "@/types";
+import type { Store, StoreAdminCredentials, StoreDetail } from "@/types";
 
 function App() {
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedStore, setSelectedStore] = useState<StoreDetail | null>(null);
+  const [credentialsOpen, setCredentialsOpen] = useState(false);
+  const [credentialsStoreLabel, setCredentialsStoreLabel] = useState("");
+  const [credentials, setCredentials] = useState<StoreAdminCredentials | null>(null);
   const [toast, setToast] = useState<{ title: string; message: string; type?: "info" | "error" } | null>(null);
 
   const counts = useMemo(() => {
@@ -65,6 +69,17 @@ function App() {
       }
     } catch (error) {
       setToast({ title: "Delete failed", message: String(error), type: "error" });
+    }
+  };
+
+  const viewCredentials = async (store: Store) => {
+    try {
+      const nextCredentials = await api.getStoreAdminCredentials(store.id);
+      setCredentials(nextCredentials);
+      setCredentialsStoreLabel(store.display_name || store.id.slice(0, 8));
+      setCredentialsOpen(true);
+    } catch (error) {
+      setToast({ title: "Could not fetch credentials", message: String(error), type: "error" });
     }
   };
 
@@ -138,9 +153,17 @@ function App() {
           onRefresh={refreshStores}
           onDelete={deleteStore}
           onSelect={selectStore}
+          onViewCredentials={viewCredentials}
         />
         <StoreEventsPanel store={selectedStore} />
       </section>
+
+      <AdminCredentialsDialog
+        open={credentialsOpen}
+        onOpenChange={setCredentialsOpen}
+        credentials={credentials}
+        storeLabel={credentialsStoreLabel}
+      />
 
       {toast && <Toast title={toast.title} message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </main>

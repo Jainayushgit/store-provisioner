@@ -5,6 +5,8 @@ This repository contains my Round 1 system design + implementation submission.
 I built a Kubernetes-native control plane where a user can create and delete ecommerce stores from a dashboard.  
 For this round, I fully implemented **WooCommerce provisioning** and kept the architecture extensible for **Medusa** later.
 
+Demo video (5-8 min): [Loom walkthrough](https://www.loom.com/share/314882afc19b49b99fc26b83878ac09c)
+
 ## 1) What I Built
 
 - React dashboard for store operations and status visibility
@@ -33,15 +35,15 @@ Scope decision:
 
 | Requirement | Where to verify | How to verify quickly | Expected result |
 | --- | --- | --- | --- |
-| Local Kubernetes + Helm | `scripts/create-cluster.sh`, `charts/platform/Chart.yaml` | Run `./scripts/create-cluster.sh` then `helm upgrade --install platform ./charts/platform -n platform --create-namespace -f values/values-local.yaml` | Platform pods and ingress resources are created |
-| Same charts for local and VPS/k3s | `values/values-local.yaml`, `values/values-prod.yaml`, `docs/vps-runbook.md` | Compare values files, then run local/prod Helm commands from sections 10 and `docs/vps-runbook.md` | Only values change between environments |
-| Create/list/delete store | `backend/app/api/stores.py`, section 6 API list | Use dashboard or call `POST /stores`, `GET /stores`, `DELETE /stores/{id}` | Store lifecycle transitions from `PROVISIONING` to `READY`, then cleanup on delete |
-| Provisioning/orchestration flow | `backend/app/workers/provisioner.py`, `backend/app/services/helm.py` | Run `./scripts/demo-flow.sh` | Deterministic namespace/release provisioning via Helm |
-| End-to-end order flow (Woo) | section 7, `scripts/demo-flow.sh` | Open store URL, add to cart, checkout, verify in `/wp-admin` | Order appears in Woo admin |
-| Isolation and guardrails | `charts/woocommerce/templates/resourcequota.yaml`, `charts/woocommerce/templates/limitrange.yaml`, `charts/woocommerce/templates/networkpolicy.yaml` | Provision a store, then inspect namespace resources with `kubectl -n store-<id> get resourcequota,limitrange,networkpolicy` | Per-store quota/limits/network policy exist |
-| Reliability and idempotency | section 8, `docs/system-design.md`, `backend/app/workers/provisioner.py` | Create store and observe events/status; rerun operations via scripts | Retry-safe, lease-based job processing with clear status events |
-| Upgrade/rollback story | `scripts/store-history.sh`, `scripts/store-upgrade.sh`, `scripts/store-rollback.sh` | Run history/upgrade/rollback scripts for a store | Helm revision history and rollback are functional |
-| Security + secrets handling | section 8 and 10, `charts/platform/templates/backend.yaml`, `values/values-prod.yaml` | Inspect manifests/values for secret refs | Secrets consumed via Kubernetes Secrets, not hardcoded in code |
+| Local Kubernetes + Helm | `scripts/create-cluster.sh`, `charts/platform/Chart.yaml` | Run cluster script, then `helm upgrade --install ... -f values/values-local.yaml` | Platform comes up with pods + ingress |
+| Same charts for local and VPS/k3s | `values/values-local.yaml`, `values/values-prod.yaml`, `docs/vps-runbook.md` | Verify chart + values split and follow runbook steps | Same chart model; VPS path is documented |
+| Create/list/delete store | `backend/app/api/stores.py`, section 6 | Call `POST /stores`, `GET /stores`, `DELETE /stores/{id}` | `PROVISIONING -> READY`, then cleanup |
+| Provisioning/orchestration | `backend/app/workers/provisioner.py`, `backend/app/services/helm.py` | Run `./scripts/demo-flow.sh` | Deterministic Helm install/uninstall per store |
+| End-to-end order flow (Woo) | section 7, `scripts/demo-flow.sh` | Open storefront, checkout, verify in `/wp-admin` | Order is visible in Woo admin |
+| Isolation and guardrails | `charts/woocommerce/templates/resourcequota.yaml`, `charts/woocommerce/templates/limitrange.yaml`, `charts/woocommerce/templates/networkpolicy.yaml` | `kubectl -n store-<id> get resourcequota,limitrange,networkpolicy` | Per-store guardrails are present |
+| Reliability and idempotency | section 8, `docs/system-design.md`, `backend/app/workers/provisioner.py` | Observe retries/events and re-run flows | Lease-based retry-safe processing |
+| Upgrade/rollback | `scripts/store-history.sh`, `scripts/store-upgrade.sh`, `scripts/store-rollback.sh` | Run history, upgrade, rollback scripts | Helm revisions and rollback work |
+| Security and secrets | sections 8 and 10, `charts/platform/templates/backend.yaml`, `values/values-prod.yaml` | Check secret references in chart/values | Secrets are sourced via Kubernetes Secrets |
 
 ## 3) High-Level Architecture
 
@@ -53,6 +55,16 @@ Dashboard (React)
          -> Helm install/upgrade/uninstall
             -> Namespace-per-store Kubernetes resources
                -> WordPress + WooCommerce store
+```
+
+```mermaid
+flowchart LR
+  D["Dashboard (React)"] --> A["Backend API (FastAPI)"]
+  A --> P["Postgres (stores, jobs, events, rate limits)"]
+  A --> W["Worker Loop (lease + retry)"]
+  W --> H["Helm upgrade/install/uninstall"]
+  H --> N["Namespace per store: store-<id>"]
+  N --> S["WordPress + WooCommerce Store"]
 ```
 
 Key design choices:
@@ -85,6 +97,12 @@ images/wordpress-woo/    Woo-enabled WordPress image build context
 - Python 3.12+
 - Node 22+
 
+If you use Colima instead of Docker Desktop, use at least:
+
+```bash
+colima start --cpu 4 --memory 6 --disk 100
+```
+
 Optional helper (macOS):
 
 ```bash
@@ -98,13 +116,17 @@ Optional helper (macOS):
 kubectl get nodes
 ```
 
-### Step B: Build images
-
-Woo-enabled WordPress image:
+The script defaults to a stable local topology (`1 server + 1 agent`).
+You can override with env vars:
 
 ```bash
-docker build -t <your-registry>/wordpress-woo:latest ./images/wordpress-woo
+K3D_SERVERS=1 K3D_AGENTS=2 ./scripts/create-cluster.sh
 ```
+
+### Step B: Build images
+
+Woo provisioning works with the chart defaults (`wordpressPlugins: woocommerce`).
+If you want a pre-baked Woo image, an optional Dockerfile is available at `images/wordpress-woo/Dockerfile`.
 
 Platform images:
 
@@ -118,8 +140,8 @@ docker build -f dashboard/Dockerfile \
 
 Update image references in:
 
-- `charts/woocommerce/values.yaml`
-- `values/values-local.yaml`
+- `charts/platform/values.yaml`
+- `values/values-local.yaml` (or your chosen environment file)
 
 ### Step C: Start backend
 
@@ -157,6 +179,7 @@ Dashboard URL: `http://localhost:5173`
 - `POST /stores` create store job (Woo allowed, Medusa currently rejected for Round 1)
 - `GET /stores` list stores
 - `GET /stores/{id}` store details + event log
+- `GET /stores/{id}/admin-credentials` admin username/password + admin URL (local/dev only)
 - `DELETE /stores/{id}` delete store job
 - `GET /healthz` health check
 - `GET /metrics` Prometheus-style metrics
@@ -259,11 +282,14 @@ If this were extended, I would prioritize:
 
 | Stand out item from brief | Status | Evidence |
 | --- | --- | --- |
-| Production-like VPS deployment on k3s with same Helm charts | Implemented | `docs/vps-runbook.md`, section 10, `values/values-prod.yaml` |
-| Documented local vs prod differences via Helm values | Implemented | section 10, `values/values-local.yaml`, `values/values-prod.yaml` |
-| Optional TLS notes | Implemented (notes) | `docs/vps-runbook.md` section 11 |
-| Stronger multi-tenant guardrails (`ResourceQuota`, `LimitRange`) | Implemented | `charts/woocommerce/templates/resourcequota.yaml`, `charts/woocommerce/templates/limitrange.yaml` |
-| Idempotency and recovery behavior | Implemented | section 8, `docs/system-design.md`, `backend/app/workers/provisioner.py` |
-| Abuse prevention beyond simple rate limiting | Partial | `backend/app/services/rate_limit.py`, `backend/app/models/rate_limit_bucket.py`; per-user quota is planned |
-| Observability/activity log surfaced to operator | Implemented | `backend/app/services/events.py`, `backend/app/models/store_event.py`, `dashboard/src/components/store-events-panel.tsx` |
-| Optional custom-domain linking from dashboard | Planned | Not implemented in Round 1 scope |
+| 1) Production-like VPS deployment | Documented (not executed) | `docs/vps-runbook.md`, section 10, `values/values-prod.yaml` (VPS deployment path + Helm values split; TLS cert-manager notes included; custom domain linking out of Round 1 scope) |
+| 2) Stronger multi-tenant isolation and guardrails | Implemented | `charts/woocommerce/templates/resourcequota.yaml`, `charts/woocommerce/templates/limitrange.yaml` (namespace-level ResourceQuota + LimitRange per store with PVC size limits and pod defaults) |
+| 3) Idempotency and recovery | Implemented | section 8, `docs/system-design.md`, `backend/app/workers/provisioner.py` (lease-based retry-safe processing; clean reconcile on component restart; requeue for stale jobs) |
+| 4) Abuse prevention beyond rate limiting | Implemented (core) | `backend/app/services/rate_limit.py`, `backend/app/models/rate_limit_bucket.py`, `backend/app/api/stores.py` (IP-based rate limiting + max active stores + provisioning timeouts + audit trail via event log) |
+| 5) Observability | Implemented | `backend/app/services/events.py`, `backend/app/models/store_event.py`, `dashboard/src/components/store-events-panel.tsx` (store-level event log in dashboard; basic metrics at `/metrics`; failure visibility with reason reporting) |
+| 6) Network and security hardening | Implemented | `charts/platform/templates/serviceaccount.yaml`, `charts/platform/templates/role.yaml`, `charts/woocommerce/templates/networkpolicy.yaml` (RBAC with least privilege; NetworkPolicy per namespace; non-root execution context) |
+| 7) Scaling plan (implemented) | Implemented | section 11 (API/dashboard horizontal scaling; async worker with lease-based concurrency; stateful concerns documented) |
+| 8) Upgrades and rollback story | Implemented | section 9, `scripts/store-history.sh`, `scripts/store-upgrade.sh`, `scripts/store-rollback.sh` (Helm revision tracking; upgrade/rollback scripts with demo) |
+
+*Note*
+I used codex in my workflow to implement the project
