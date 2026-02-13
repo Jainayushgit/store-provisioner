@@ -1,12 +1,43 @@
+{{- $postgresSecretName := .Values.postgres.secretName | default "platform-postgres-secret" -}}
+{{- if .Values.postgres.existingSecret -}}
+{{- $postgresSecretName = .Values.postgres.existingSecret -}}
+{{- end -}}
+{{- $existingPgSecret := lookup "v1" "Secret" .Release.Namespace $postgresSecretName -}}
+{{- $existingPgPassword := "" -}}
+{{- if and $existingPgSecret (hasKey $existingPgSecret.data "POSTGRES_PASSWORD") -}}
+{{- $existingPgPassword = (index $existingPgSecret.data "POSTGRES_PASSWORD" | b64dec) -}}
+{{- end -}}
+{{- $postgresPassword := .Values.postgres.password | default $existingPgPassword -}}
+{{- if and (not .Values.postgres.existingSecret) (eq $postgresPassword "") -}}
+{{- $postgresPassword = randAlphaNum 24 -}}
+{{- end -}}
+{{- if and .Values.postgres.existingSecret (eq $postgresPassword "") -}}
+{{- fail "postgres.existingSecret is set, but POSTGRES_PASSWORD could not be resolved. Add POSTGRES_PASSWORD to that Secret or set postgres.password." -}}
+{{- end -}}
+{{- $databaseHost := .Values.backend.database.host | default "platform-postgres" -}}
+{{- $databasePort := .Values.backend.database.port | default 5432 -}}
+{{- $databaseURL := printf "postgresql+psycopg://%s:%s@%s:%v/%s" .Values.postgres.username $postgresPassword $databaseHost $databasePort .Values.postgres.database -}}
+{{- $backendSecretName := .Values.backend.secretName | default "platform-backend-secret" -}}
+{{- if not .Values.backend.existingSecret -}}
 apiVersion: v1
 kind: Secret
 metadata:
-  name: platform-postgres-secret
+  name: {{ $backendSecretName }}
+stringData:
+  DATABASE_URL: {{ $databaseURL | quote }}
+---
+{{- end }}
+{{- if not .Values.postgres.existingSecret -}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $postgresSecretName }}
 stringData:
   POSTGRES_DB: {{ .Values.postgres.database | quote }}
   POSTGRES_USER: {{ .Values.postgres.username | quote }}
-  POSTGRES_PASSWORD: {{ .Values.postgres.password | quote }}
+  POSTGRES_PASSWORD: {{ $postgresPassword | quote }}
 ---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -41,7 +72,7 @@ spec:
             - containerPort: 5432
           envFrom:
             - secretRef:
-                name: platform-postgres-secret
+                name: {{ $postgresSecretName }}
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data

@@ -71,6 +71,17 @@ helm upgrade --install platform ./charts/platform \
   -f values/values-prod.yaml
 ```
 
+Optional hardening: provide existing secrets instead of chart-managed ones:
+
+```bash
+kubectl -n platform create secret generic platform-postgres-secret \
+  --from-literal=POSTGRES_DB=platform \
+  --from-literal=POSTGRES_USER=postgres \
+  --from-literal=POSTGRES_PASSWORD='<strong-password>'
+```
+
+Then set `postgres.existingSecret: platform-postgres-secret` and `backend.existingSecret: platform-backend-secret` in values (or create `platform-backend-secret` with `DATABASE_URL`).
+
 ## 7) Run DB migrations
 
 ```bash

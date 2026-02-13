@@ -6,7 +6,7 @@ store:
 wordpress:
   fullnameOverride: "store-dev"
   wordpressUsername: admin
-  wordpressPassword: changeme
+  wordpressPassword: ""
   wordpressEmail: admin@example.com
   wordpressFirstName: Store
   wordpressLastName: Admin
@@ -78,9 +78,9 @@ wordpress:
     enabled: true
     architecture: standalone
     auth:
-      rootPassword: rootpass
+      rootPassword: ""
       username: bn_wordpress
-      password: wordpresspass
+      password: ""
       database: bitnami_wordpress
     primary:
       persistence:

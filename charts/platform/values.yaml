@@ -4,8 +4,13 @@ backend:
   image: yourdockerhub/store-platform-backend:latest
   replicas: 1
   port: 8000
+  secretName: platform-backend-secret
+  existingSecret: ""
+  secretKey: DATABASE_URL
+  database:
+    host: platform-postgres
+    port: 5432
   env:
-    DATABASE_URL: postgresql+psycopg://postgres:postgres@platform-postgres:5432/platform
     HELM_CHART_PATH: /app/charts/woocommerce
     LOCAL_DOMAIN: localtest.me
     WORKER_MAX_CONCURRENCY: "2"
@@ -31,10 +36,12 @@ dashboard:
 
 postgres:
   image: postgres:16-alpine
+  secretName: platform-postgres-secret
+  existingSecret: ""
   storageSize: 10Gi
   database: platform
   username: postgres
-  password: postgres
+  password: ""
 
 ingress:
   enabled: true

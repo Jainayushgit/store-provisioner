@@ -26,7 +26,8 @@ Each store is isolated in a deterministic namespace (`store-<uuid>`) and Helm re
 - Namespace-per-store isolation.
 - Per-store ResourceQuota and LimitRange.
 - Baseline NetworkPolicy template in store chart.
-- No secrets in source; values/secrets are injected at deploy time.
+- Platform DB credentials are injected via Kubernetes Secrets; backend consumes `DATABASE_URL` from a Secret reference.
+- Chart defaults avoid committed real credentials (generated or placeholder values only).
 
 ## Local to production
 The same charts are used for local and VPS deployments; only values differ:

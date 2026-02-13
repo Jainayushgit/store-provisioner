@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
-    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/platform"
+    database_url: str = "postgresql+psycopg://user:change_me@localhost:5432/platform"
 
     worker_id: str = "worker-1"
     worker_poll_seconds: float = 2.0

@@ -37,7 +37,10 @@ spec:
             - containerPort: {{ .Values.backend.port }}
           env:
             - name: DATABASE_URL
-              value: {{ .Values.backend.env.DATABASE_URL | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.existingSecret | default (.Values.backend.secretName | default "platform-backend-secret") }}
+                  key: {{ .Values.backend.secretKey | default "DATABASE_URL" }}
             - name: HELM_CHART_PATH
               value: {{ .Values.backend.env.HELM_CHART_PATH | quote }}
             - name: LOCAL_DOMAIN
