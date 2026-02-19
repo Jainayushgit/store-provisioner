@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     local_domain: str = "localtest.me"
     http_ready_timeout_seconds: int = 240
     http_ready_poll_seconds: int = 5
+    store_ingress_class: str = "nginx"
+    store_guest_cache_enabled: bool = True
+    store_guest_cache_ttl_seconds: int = 14400
+    store_guest_cache_zone: str = "store_cache"
 
     default_store_engine: str = "woocommerce"
 

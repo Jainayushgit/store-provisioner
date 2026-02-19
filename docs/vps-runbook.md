@@ -7,6 +7,7 @@ Only values and infrastructure primitives change:
 
 - `LOCAL_DOMAIN`: `localtest.me` -> `stores.example.com`
 - ingress hosts: local -> public DNS (`controlplane.example.com`, `api.controlplane.example.com`)
+- tenant store ingress class: `nginx` (with ingress-nginx cache zone for guest pages)
 - backend replicas/concurrency: higher in prod overlay
 - image tags: pinned immutable tags instead of local/dev tags
 
@@ -37,6 +38,13 @@ Install Helm locally on the VPS (or from your laptop with kubeconfig access):
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 ```
 
+Install ingress-nginx for tenant store traffic (Traefik remains for existing platform ingress):
+
+```bash
+./scripts/install-ingress-nginx.sh
+kubectl get ingressclass
+```
+
 ## 4) Build and push images
 
 From repo root:
@@ -61,6 +69,10 @@ Edit `values/values-prod.yaml`:
 - `ingress.dashboardHost`: `controlplane.example.com`
 - `ingress.backendHost`: `api.controlplane.example.com`
 - `backend.env.LOCAL_DOMAIN`: `stores.example.com`
+- `backend.env.STORE_INGRESS_CLASS`: `nginx`
+- `backend.env.STORE_GUEST_CACHE_ENABLED`: `"true"`
+- `backend.env.STORE_GUEST_CACHE_TTL_SECONDS`: `"14400"`
+- `backend.env.STORE_GUEST_CACHE_ZONE`: `store_cache`
 
 ## 6) Deploy platform chart
 

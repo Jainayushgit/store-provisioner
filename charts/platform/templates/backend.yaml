@@ -47,6 +47,14 @@ spec:
               value: {{ .Values.backend.env.LOCAL_DOMAIN | quote }}
             - name: WORKER_MAX_CONCURRENCY
               value: {{ .Values.backend.env.WORKER_MAX_CONCURRENCY | quote }}
+            - name: STORE_INGRESS_CLASS
+              value: {{ .Values.backend.env.STORE_INGRESS_CLASS | quote }}
+            - name: STORE_GUEST_CACHE_ENABLED
+              value: {{ .Values.backend.env.STORE_GUEST_CACHE_ENABLED | quote }}
+            - name: STORE_GUEST_CACHE_TTL_SECONDS
+              value: {{ .Values.backend.env.STORE_GUEST_CACHE_TTL_SECONDS | quote }}
+            - name: STORE_GUEST_CACHE_ZONE
+              value: {{ .Values.backend.env.STORE_GUEST_CACHE_ZONE | quote }}
           resources:
 {{ toYaml .Values.backend.resources | indent 12 }}
           readinessProbe:

@@ -13,6 +13,7 @@ Demo video : [Loom walkthrough](https://www.loom.com/share/314882afc19b49b99fc26
 - FastAPI backend for APIs + orchestration
 - Postgres metadata store for jobs, stores, and events
 - Helm-based provisioning into **namespace-per-store** isolation
+- Hybrid ingress model: Traefik for control-plane routes, ingress-nginx for tenant-store guest page caching
 - Local-to-prod setup using the **same charts**, with environment differences handled through values files
 
 ## 2) Requirement Coverage (Round 1)
@@ -121,6 +122,16 @@ You can override with env vars:
 
 ```bash
 K3D_SERVERS=1 K3D_AGENTS=2 ./scripts/create-cluster.sh
+```
+
+### Step A1: Install ingress-nginx for tenant guest-cache (new stores)
+
+Traefik remains in place for existing platform ingress routes.  
+This installs ingress-nginx with trusted snippet mode and a shared cache zone (`store_cache`) used by tenant ingress annotations.
+
+```bash
+./scripts/install-ingress-nginx.sh
+kubectl get ingressclass
 ```
 
 ### Step B: Build images
@@ -242,6 +253,13 @@ helm upgrade --install platform ./charts/platform \
   -n platform --create-namespace \
   -f values/values-local.yaml
 ```
+
+Store cache-related backend env defaults (via values):
+
+- `STORE_INGRESS_CLASS=nginx`
+- `STORE_GUEST_CACHE_ENABLED=true`
+- `STORE_GUEST_CACHE_TTL_SECONDS=14400`
+- `STORE_GUEST_CACHE_ZONE=store_cache`
 
 Production-like example:
 

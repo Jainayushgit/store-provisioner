@@ -69,7 +69,7 @@ wordpress:
       wp_cmd cache flush || true
   ingress:
     enabled: true
-    ingressClassName: traefik
+    ingressClassName: nginx
     hostname: store-dev.localtest.me
     path: /
     pathType: Prefix

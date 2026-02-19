@@ -14,6 +14,10 @@ backend:
     HELM_CHART_PATH: /app/charts/woocommerce
     LOCAL_DOMAIN: localtest.me
     WORKER_MAX_CONCURRENCY: "2"
+    STORE_INGRESS_CLASS: nginx
+    STORE_GUEST_CACHE_ENABLED: "true"
+    STORE_GUEST_CACHE_TTL_SECONDS: "14400"
+    STORE_GUEST_CACHE_ZONE: store_cache
   resources:
     requests:
       cpu: 100m

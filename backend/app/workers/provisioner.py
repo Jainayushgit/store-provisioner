@@ -151,19 +151,17 @@ class ProvisioningWorker:
         log_event(db, store.id, "install_started", "Starting Helm provisioning")
         db.commit()
 
+        store_host = self._build_store_host(str(store.id))
         values = {
             "store": {
                 "id": str(store.id),
                 "namespace": store.namespace,
-                "host": self._build_store_host(str(store.id)),
+                "host": store_host,
             },
             "wordpress": {
                 "fullnameOverride": store.release_name,
                 "wordpressBlogName": store.display_name or f"Store {str(store.id)[:8]}",
-                "ingress": {
-                    "enabled": True,
-                    "hostname": self._build_store_host(str(store.id)),
-                },
+                "ingress": self._build_store_ingress_values(store_host),
             },
         }
         self.helm.upgrade_install(
@@ -174,7 +172,7 @@ class ProvisioningWorker:
             timeout_seconds=self.settings.helm_timeout_seconds,
         )
 
-        url = f"http://{self._build_store_host(str(store.id))}"
+        url = f"http://{store_host}"
         try:
             self.readiness.wait_for_http_ok(
                 url=url,
@@ -214,6 +212,54 @@ class ProvisioningWorker:
 
     def _build_store_host(self, store_id: str) -> str:
         return f"store-{store_id}.{self.settings.local_domain}"
+
+    def _build_store_ingress_values(self, store_host: str) -> dict:
+        ingress_values: dict = {
+            "enabled": True,
+            "hostname": store_host,
+            "ingressClassName": self.settings.store_ingress_class,
+        }
+
+        if self.settings.store_guest_cache_enabled:
+            ingress_values["annotations"] = self._build_store_cache_annotations()
+
+        return ingress_values
+
+    def _build_store_cache_annotations(self) -> dict:
+        ttl_seconds = max(1, self.settings.store_guest_cache_ttl_seconds)
+        configuration_snippet = "\n".join(
+            [
+                "set $skip_cache 0;",
+                "",
+                "if ($request_method !~ ^(GET|HEAD)$) {",
+                "  set $skip_cache 1;",
+                "}",
+                "",
+                "if ($request_uri ~* \"^/(wp-admin/?|wp-login\\.php|cart/?|checkout/?|my-account/?|wc-api/?|wp-json/)\") {",
+                "  set $skip_cache 1;",
+                "}",
+                "",
+                "if ($query_string ~* \"(^|&)(add-to-cart|wc-ajax|remove_item|undo_item|apply_coupon|remove_coupon)=\") {",
+                "  set $skip_cache 1;",
+                "}",
+                "",
+                "if ($http_cookie ~* \"(wordpress_logged_in_|wordpress_sec_|wp-postpass_|comment_author_|woocommerce_items_in_cart|woocommerce_cart_hash|wp_woocommerce_session_|PHPSESSID)\") {",
+                "  set $skip_cache 1;",
+                "}",
+                "",
+                f"proxy_cache {self.settings.store_guest_cache_zone};",
+                "proxy_cache_key \"$scheme$request_method$host$request_uri\";",
+                f"proxy_cache_valid 200 301 302 {ttl_seconds}s;",
+                "proxy_cache_bypass $skip_cache;",
+                "proxy_no_cache $skip_cache;",
+                "add_header X-Store-Cache $upstream_cache_status always;",
+            ]
+        )
+
+        return {
+            "nginx.ingress.kubernetes.io/proxy-buffering": "on",
+            "nginx.ingress.kubernetes.io/configuration-snippet": configuration_snippet,
+        }
 
 
 def count_active_stores(db: Session) -> int:

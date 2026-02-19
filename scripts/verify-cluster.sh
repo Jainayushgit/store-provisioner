@@ -8,7 +8,15 @@ echo "Checking storage class"
 kubectl get storageclass
 
 echo "Checking ingress controller pods"
-kubectl get pods -A | grep -E 'traefik|ingress' || true
+kubectl get pods -A | grep -E 'traefik|ingress-nginx|ingress' || true
+
+echo "Checking ingress classes"
+kubectl get ingressclass || true
+if kubectl get ingressclass nginx >/dev/null 2>&1; then
+  echo "Found ingress class 'nginx' (ready for tenant guest-cache)."
+else
+  echo "Ingress class 'nginx' not found. Run ./scripts/install-ingress-nginx.sh to enable tenant guest-cache."
+fi
 
 echo "Creating PVC smoke test"
 cat <<YAML | kubectl apply -f -
